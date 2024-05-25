@@ -14,6 +14,13 @@ internal class Program
     {
         var config = LoadConfiguration();
         var openAI = new OpenAI(config["apiKey"]!);
+        var fileName = GetTodaysFileName();
+
+        if (fileName.Exists)
+        {
+            Console.WriteLine("Image already exists, exiting...");
+            return;
+        }
 
         Console.WriteLine("Generating prompt...");
         var prompt = await openAI.GeneratePrompt("An interesting historical event that happened on " + DateTime.Today.ToString("MMMM d"));
@@ -28,13 +35,17 @@ internal class Program
             return;
         }
 
-        var fileName = new FileInfo(Path.Combine(_outputDirectory, DateTime.Today.ToString("yyyy-MM-dd") + ".png"));
         SaveImage(imageData, fileName);
 
         Console.WriteLine("Setting windows background...");
         WindowsUtilities.SetWallpaper(fileName.FullName);
 
         Console.WriteLine("Done!");
+    }
+
+    private static FileInfo GetTodaysFileName()
+    {
+        return new FileInfo(Path.Combine(_outputDirectory, DateTime.Today.ToString("yyyy-MM-dd") + ".png"));
     }
 
     private static void SaveImage(byte[] bytes, FileInfo fileName)
