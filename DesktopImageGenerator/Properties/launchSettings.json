@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "DesktopImageGenerator": {
+      "commandName": "Project",
+      "commandLineArgs": "install"
+    }
+  }
+}
