@@ -1,6 +1,7 @@
 ﻿using IWshRuntimeLibrary;
 using Microsoft.Extensions.Configuration;
 using System.CommandLine;
+using System.Diagnostics;
 using System.Reflection;
 
 namespace DesktopImageGenerator;
@@ -68,6 +69,42 @@ internal class Program
         WindowsUtilities.SetWallpaper(fileName.FullName);
 
         Console.WriteLine("Done!");
+
+        ShowAlert(prompt.Description);
+    }
+
+    private static void ShowAlert(string description)
+    {
+        if (!System.IO.File.Exists("DesktopImageGenerator.Alert.exe"))
+        {
+            return;
+        }
+
+        ProcessStartInfo startInfo = new ProcessStartInfo
+        {
+            FileName = "DesktopImageGenerator.Alert.exe",
+            Arguments = PrepareArgument(description),
+            UseShellExecute = true,
+        };
+
+        using (Process process = new Process())
+        {
+            process.StartInfo = startInfo;
+
+            try
+            {
+                process.Start();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred: {ex.Message}");
+            }
+        }
+    }
+
+    private static string PrepareArgument(string input)
+    {
+        return "\"" + input.Replace("\"", "\\\"") + "\"";
     }
 
     private static FileInfo GetTodaysFileName()
