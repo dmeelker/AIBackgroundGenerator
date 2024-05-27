@@ -1,7 +1,6 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using DesktopImageGenerator.Generators;
+using Microsoft.Extensions.Configuration;
 using System.CommandLine;
-using System.Drawing;
-using System.Drawing.Imaging;
 
 namespace DesktopImageGenerator;
 
@@ -40,6 +39,8 @@ internal class Program
             return;
         }
 
+        var imageGenerator = new HistoricalEventImageGenerator(new OpenAI(apiKey));
+
         var openAI = new OpenAI(apiKey);
         var fileName = GetTodaysFileName();
 
@@ -51,12 +52,7 @@ internal class Program
         }
 #endif
 
-        Console.WriteLine("Generating prompt...");
-        var prompt = await openAI.GeneratePrompt("An interesting historical event that happened on " + DateTime.Today.ToString("MMMM d"));
-        Console.WriteLine(prompt.Description);
-
-        Console.WriteLine("Generating image...");
-        var imageData = await openAI.GenerateImage(prompt.Prompt);
+        var imageData = await imageGenerator.GenerateImage();
 
         if (imageData is null)
         {
@@ -64,9 +60,7 @@ internal class Program
             return;
         }
 
-        var image = Image.FromStream(new MemoryStream(imageData));
-        AddOverlay(image, prompt.Description);
-        SaveImage(image, fileName);
+        SaveImage(imageData, fileName);
 
         Console.WriteLine("Setting windows background...");
         WindowsUtilities.SetWallpaper(fileName.FullName);
@@ -74,30 +68,15 @@ internal class Program
         Console.WriteLine("Done!");
     }
 
-    private static void AddOverlay(Image image, string text)
-    {
-        using Graphics graphics = Graphics.FromImage(image);
-        using Font font = new Font("Arial", 10);
-
-        var rect = new RectangleF(20, 20, 500, 100);
-        using var brush = new SolidBrush(Color.FromArgb(128, Color.White));
-        graphics.FillRectangle(brush, rect);
-        graphics.DrawString(text, font, Brushes.Black, rect, new StringFormat()
-        {
-            Alignment = StringAlignment.Center,
-            LineAlignment = StringAlignment.Center,
-        });
-    }
-
     private static FileInfo GetTodaysFileName()
     {
         return new FileInfo(Path.Combine(_outputDirectory, DateTime.Today.ToString("yyyy-MM-dd") + ".png"));
     }
 
-    private static void SaveImage(Image image, FileInfo fileName)
+    private static void SaveImage(byte[] imageData, FileInfo fileName)
     {
         Directory.CreateDirectory(_outputDirectory);
-        image.Save(fileName.FullName, ImageFormat.Png);
+        File.WriteAllBytes(fileName.FullName, imageData);
     }
 
     private static IConfiguration LoadConfiguration()
