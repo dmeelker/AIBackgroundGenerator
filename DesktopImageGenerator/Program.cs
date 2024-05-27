@@ -1,7 +1,8 @@
 ﻿using IWshRuntimeLibrary;
 using Microsoft.Extensions.Configuration;
 using System.CommandLine;
-using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.Reflection;
 
 namespace DesktopImageGenerator;
@@ -44,18 +45,20 @@ internal class Program
         var openAI = new OpenAI(apiKey);
         var fileName = GetTodaysFileName();
 
+#if !DEBUG
         if (fileName.Exists)
         {
             Console.WriteLine("Today's image already exists, exiting...");
             return;
         }
+#endif
 
         Console.WriteLine("Generating prompt...");
         var prompt = await openAI.GeneratePrompt("An interesting historical event that happened on " + DateTime.Today.ToString("MMMM d"));
         Console.WriteLine(prompt.Description);
 
         Console.WriteLine("Generating image...");
-        var imageData = await openAI.GenerateImage(prompt.Prompt + ". In the foreground, there is a small frame with a short description: '" + prompt.Description + "', be sure the frame is entirely visible.");
+        var imageData = await openAI.GenerateImage(prompt.Prompt);
 
         if (imageData is null)
         {
@@ -63,48 +66,29 @@ internal class Program
             return;
         }
 
-        SaveImage(imageData, fileName);
+        var image = Image.FromStream(new MemoryStream(imageData));
+        AddOverlay(image, prompt.Description);
+        SaveImage(image, fileName);
 
         Console.WriteLine("Setting windows background...");
         WindowsUtilities.SetWallpaper(fileName.FullName);
 
         Console.WriteLine("Done!");
-
-        ShowAlert(prompt.Description);
     }
 
-    private static void ShowAlert(string description)
+    private static void AddOverlay(Image image, string text)
     {
-        if (!System.IO.File.Exists("DesktopImageGenerator.Alert.exe"))
+        using Graphics graphics = Graphics.FromImage(image);
+        using Font font = new Font("Arial", 10);
+
+        var rect = new RectangleF(20, 20, 500, 100);
+        using var brush = new SolidBrush(Color.FromArgb(128, Color.White));
+        graphics.FillRectangle(brush, rect);
+        graphics.DrawString(text, font, Brushes.Black, rect, new StringFormat()
         {
-            return;
-        }
-
-        ProcessStartInfo startInfo = new ProcessStartInfo
-        {
-            FileName = "DesktopImageGenerator.Alert.exe",
-            Arguments = PrepareArgument(description),
-            UseShellExecute = true,
-        };
-
-        using (Process process = new Process())
-        {
-            process.StartInfo = startInfo;
-
-            try
-            {
-                process.Start();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"An error occurred: {ex.Message}");
-            }
-        }
-    }
-
-    private static string PrepareArgument(string input)
-    {
-        return "\"" + input.Replace("\"", "\\\"") + "\"";
+            Alignment = StringAlignment.Center,
+            LineAlignment = StringAlignment.Center,
+        });
     }
 
     private static FileInfo GetTodaysFileName()
@@ -112,10 +96,10 @@ internal class Program
         return new FileInfo(Path.Combine(_outputDirectory, DateTime.Today.ToString("yyyy-MM-dd") + ".png"));
     }
 
-    private static void SaveImage(byte[] bytes, FileInfo fileName)
+    private static void SaveImage(Image image, FileInfo fileName)
     {
         Directory.CreateDirectory(_outputDirectory);
-        System.IO.File.WriteAllBytes(fileName.FullName, bytes);
+        image.Save(fileName.FullName, ImageFormat.Png);
     }
 
     private static void InstallAutostart()
