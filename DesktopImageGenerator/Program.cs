@@ -39,9 +39,13 @@ internal class Program
             return;
         }
 
-        var imageGenerator = new HistoricalEventImageGenerator(new OpenAI(apiKey));
-
         var openAI = new OpenAI(apiKey);
+
+        var imageGenerator = CreateGenerator(config["generator"]!, openAI, config);
+
+        //var imageGenerator = new HistoricalEventImageGenerator(new OpenAI(apiKey));
+
+
         var fileName = GetTodaysFileName();
 
 #if !DEBUG
@@ -66,6 +70,16 @@ internal class Program
         WindowsUtilities.SetWallpaper(fileName.FullName);
 
         Console.WriteLine("Done!");
+    }
+
+    private static IImageGenerator CreateGenerator(string name, OpenAI openAi, IConfiguration configuration)
+    {
+        return name.Trim().ToLower() switch
+        {
+            "historic-events" => new HistoricalEventImageGenerator(openAi),
+            "simple" => new SimpleImageGenerator(openAi, configuration),
+            _ => throw new ArgumentException("Unknown generator name", nameof(name)),
+        };
     }
 
     private static FileInfo GetTodaysFileName()
