@@ -1,4 +1,5 @@
-﻿using IWshRuntimeLibrary;
+﻿using ShellLink;
+using ShellLink.Flags;
 using System.Reflection;
 
 namespace DesktopImageGenerator;
@@ -7,25 +8,24 @@ public static class Autostart
 {
     public static void InstallAutostart()
     {
-        var shellClass = new WshShellClass();
         string exeFullName = GetCurrentBinary();
         var shortcutFile = GetAutostartShortcutFileName();
 
-        if (System.IO.File.Exists(shortcutFile))
+        if (File.Exists(shortcutFile))
         {
             Console.WriteLine("Autostart already set up, exiting...");
             return;
         }
 
-        var shortcut = (IWshShortcut)shellClass.CreateShortcut(shortcutFile);
-        shortcut.TargetPath = exeFullName;
-        shortcut.IconLocation = exeFullName;
-        shortcut.WorkingDirectory = Path.GetDirectoryName(exeFullName);
-        shortcut.Arguments = "";
-        shortcut.Description = "Generate a desktop image";
-        shortcut.WindowStyle = 7; // Minimized
-        shortcut.Save();
-
+        var shortcut = Shortcut.CreateShortcut(
+            path: exeFullName,
+            args: "",
+            workdir: Path.GetDirectoryName(exeFullName)!,
+            iconpath: exeFullName,
+            iconindex: 0
+        );
+        shortcut.ShowCommand = ShowCommand.SW_SHOWMINNOACTIVE;
+        shortcut.WriteToFile(shortcutFile);
         Console.WriteLine("Autostart entry installed");
     }
 
@@ -33,13 +33,13 @@ public static class Autostart
     {
         var shortcutFile = GetAutostartShortcutFileName();
 
-        if (!System.IO.File.Exists(shortcutFile))
+        if (!File.Exists(shortcutFile))
         {
             Console.WriteLine("The app has not been set to autostart");
             return;
         }
 
-        System.IO.File.Delete(shortcutFile);
+        File.Delete(shortcutFile);
         Console.WriteLine("Autostart entry removed");
     }
 
